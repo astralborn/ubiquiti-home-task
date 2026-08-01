@@ -13,18 +13,49 @@ from collections.abc import Generator
 
 import boto3
 import pytest
+import requests
 from botocore.config import Config
 from mypy_boto3_s3 import S3Client
 from mypy_boto3_s3.type_defs import ObjectIdentifierTypeDef
 
 from tests.constants import (
     AWS_REGION,
+    HTTP_TIMEOUT,
     RUSTFS_ACCESS_KEY,
     RUSTFS_ENDPOINT,
     RUSTFS_SECRET_KEY,
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Service availability gate
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _require_rustfs_running() -> None:
+    """Fail the entire session immediately if RustFS is not reachable."""
+    try:
+        resp = requests.get(f"{RUSTFS_ENDPOINT}/health/live", timeout=HTTP_TIMEOUT)
+        resp.raise_for_status()
+    except requests.exceptions.ConnectionError:
+        pytest.exit(
+            f"RustFS is not running at {RUSTFS_ENDPOINT}. "
+            "Start it with: docker compose -f task_assets/docker-compose.yml up -d",
+            returncode=1,
+        )
+    except requests.exceptions.Timeout:
+        pytest.exit(
+            f"RustFS at {RUSTFS_ENDPOINT} did not respond within {HTTP_TIMEOUT}s.",
+            returncode=1,
+        )
+    except requests.exceptions.RequestException as exc:
+        pytest.exit(
+            f"RustFS health check failed: {exc}",
+            returncode=1,
+        )
 
 # ---------------------------------------------------------------------------
 # Helper functions

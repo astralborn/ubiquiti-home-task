@@ -139,7 +139,7 @@ Marked as `xfail` so the test documents the bug without blocking the suite.
 
 ```
 tests/
-├── conftest.py                    # Fixtures (S3 client, fault-tolerant bucket teardown)
+├── conftest.py                    # Service gate, fixtures, teardown
 ├── constants.py                   # Endpoints, credentials, timeouts, size limits
 ├── sigv4.py                       # AWS SigV4 signer for admin API
 │
@@ -167,7 +167,7 @@ tests/
 
 | # | Assumption |
 |:-:|------------|
-| 1 | RustFS is running before tests start (`docker compose up -d`) |
+| 1 | RustFS is running before tests start — the suite checks `/health/live` and fails fast with instructions if not |
 | 2 | Default credentials (`rustfsadmin`/`rustfsadmin`) unless overridden via env vars |
 | 3 | Ports 9000 (S3 API) and 9001 (console) are available |
 | 4 | Single-node deployment — no cluster or replication testing |
@@ -177,7 +177,7 @@ tests/
 | Area | Gap | Impact |
 |------|-----|--------|
 | Concurrency | Sequential execution only | Race conditions not covered |
-| Resilience | Healthy localhost assumed | No timeout/retry/network-failure testing |
+| Resilience | Healthy localhost assumed | Service availability is checked at startup; no timeout/retry/network-failure testing |
 | Multi-tenant | Root account + rejection tests only | Two *valid* users never interact |
 | Scope | Functional only | No load/stress/performance testing |
 

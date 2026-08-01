@@ -13,12 +13,13 @@
 ## 🔄 How It Works
 
 ```
-pytest ──▶ conftest.py (creates bucket) ──▶ test runs ──▶ conftest.py (deletes bucket)
-                │                                               │
-                └──── boto3 / SigV4 / Playwright ──────────────▶ RustFS (Docker)
+pytest ──▶ conftest.py (health check) ──▶ conftest.py (creates bucket) ──▶ test runs ──▶ conftest.py (deletes bucket)
+                │                                                                           │
+                └──────────────────── boto3 / SigV4 / Playwright ──────────────────────────▶ RustFS (Docker)
 ```
 
-> **Each test gets a fresh bucket. No test depends on another. All cleanup is automatic.**
+> **RustFS must be running — the suite fails fast with a clear message if it isn't.**
+> Each test gets a fresh bucket. No test depends on another. All cleanup is automatic.
 
 ---
 
@@ -37,9 +38,11 @@ Each layer has independent auth and failure modes — a bug in one doesn't block
 ## ♻️ Test Lifecycle
 
 ```
-1. Fixture creates a unique bucket (UUID name)
-2. Test runs assertions against live RustFS
-3. Fixture tears down (each step runs independently):
+1. Session-scoped health check hits /health/live
+   → If RustFS is unreachable, pytest.exit() stops immediately with instructions
+2. Fixture creates a unique bucket (UUID name)
+3. Test runs assertions against live RustFS
+4. Fixture tears down (each step runs independently):
    → Removes bucket policy
    → Deletes all objects
    → Aborts multipart uploads
@@ -56,7 +59,7 @@ when a test errors out mid-run.
 
 | File | Does what |
 |------|-----------|
-| `conftest.py` | Fixtures + teardown helpers |
+| `conftest.py` | Service availability gate + fixtures + teardown helpers |
 | `constants.py` | All config (env vars, timeouts, size limits — no magic numbers) |
 | `sigv4.py` | AWS Signature V4 signer for admin API |
 | `console_page.py` | Page Object for browser interactions |
@@ -69,6 +72,7 @@ when a test errors out mid-run.
 |--------|-----|
 | Random payloads (`os.urandom`) | Repeated bytes can hide corruption bugs |
 | Session-scoped client, per-test buckets | Fast execution (one connection) with test isolation (no shared state) |
+| Service availability gate | `pytest.exit()` with actionable message if RustFS is unreachable — no cryptic `ConnectionRefusedError` traces |
 | Env-based config | Works locally with zero setup, overridable for future CI |
 | Custom SigV4 signer | boto3 doesn't sign admin API paths — minimal standalone implementation |
 | Named constants for all timeouts/limits | No magic numbers — tunable from one file (`constants.py`) |

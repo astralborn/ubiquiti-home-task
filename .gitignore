@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+
+# Virtual environment
+.venv/
+
+# IDE
+.idea/
+
+# pytest
+.pytest_cache/
+
+# Linters / type checkers
+.ruff_cache/
+
+# Reports
+reports/
